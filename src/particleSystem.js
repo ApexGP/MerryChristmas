@@ -22,9 +22,16 @@ export class ParticleSystem {
 
     this.materials = this._initMaterials();
     this.geometries = this._initGeometries();
+    this.fullnessScale = 1.5;
 
     this._initParticles();
     this.setActiveFraction(1);
+    this.lastMode = STATE.mode;
+    this.focusPool = [];
+    this.cachedFocusIndex = -1;
+    this.cachedFocusLocal = null;
+
+    this._addStar();
   }
 
   _initMaterials() {
@@ -111,6 +118,7 @@ export class ParticleSystem {
       } else {
         mesh = new THREE.Mesh(this.geometries.candy, this.materials.candy);
       }
+      mesh.scale.multiplyScalar(this.fullnessScale);
 
       this._addParticle(mesh, "DECO", i, mainCount);
     }
@@ -120,6 +128,7 @@ export class ParticleSystem {
         this.geometries.photoFrame,
         this.materials.photo.clone()
       );
+      mesh.scale.multiplyScalar(this.fullnessScale);
       this._addParticle(mesh, "PHOTO", i, photoCount);
     }
 
@@ -136,7 +145,7 @@ export class ParticleSystem {
     }
   }
 
-  _addParticle(mesh, type, index, total) {
+  _addParticle(mesh, type, index, total, isUploaded = false) {
     // 使用非线性分布让更多粒子落在底部，提升下缘密度
     const tLinear = index / total;
     const t = Math.pow(tLinear, 0.7);
@@ -193,6 +202,7 @@ export class ParticleSystem {
 
     mesh.userData = {
       type,
+      isUploaded,
       treePos,
       scatterPos,
       scatterPhase: Math.random() * Math.PI * 2,
@@ -217,16 +227,19 @@ export class ParticleSystem {
   addPhoto(texture) {
     const mat = new THREE.MeshBasicMaterial({ map: texture });
     const mesh = new THREE.Mesh(this.geometries.photoFrame, mat);
+    mesh.scale.multiplyScalar(this.fullnessScale);
     this._addParticle(
       mesh,
       "PHOTO",
       Math.random() * this.config.mainCount,
-      this.config.mainCount
+      this.config.mainCount,
+      true
     );
     mesh.position.set(0, 0, 40);
+    this._invalidateFocusPool();
   }
 
-  update() {
+  update(camera, controls) {
     const now = performance.now();
     const glow = 0.35 + 0.2 * Math.sin(now * 0.003);
     this.materials.goldBox.emissiveIntensity = glow;
@@ -236,8 +249,30 @@ export class ParticleSystem {
     const lerpSpeed = 0.05;
     const yAxis = new THREE.Vector3(0, 1, 0);
 
-    if (STATE.mode === MODES.SCATTER) {
+    if (STATE.mode === MODES.SCATTER || STATE.mode === MODES.FOCUS) {
       this.scatterAngle += 0.0055;
+    }
+
+    const modeChanged = this.lastMode !== STATE.mode;
+    let focusLocalTarget = null;
+    if (
+      STATE.mode === MODES.FOCUS &&
+      camera &&
+      controls &&
+      STATE.focusTargetIndex >= 0
+    ) {
+      if (this.cachedFocusIndex !== STATE.focusTargetIndex) {
+        const dir = new THREE.Vector3()
+          .subVectors(controls.target, camera.position)
+          .normalize();
+        const focusWorld = camera.position.clone().addScaledVector(dir, 9);
+        this.cachedFocusLocal = this.group.worldToLocal(focusWorld);
+        this.cachedFocusIndex = STATE.focusTargetIndex;
+      }
+      focusLocalTarget = this.cachedFocusLocal;
+    } else {
+      this.cachedFocusIndex = -1;
+      this.cachedFocusLocal = null;
     }
 
     this.particles.forEach((p, idx) => {
@@ -252,6 +287,7 @@ export class ParticleSystem {
       if (STATE.mode === MODES.TREE) {
         targetVec.copy(data.treePos);
         p.scale.lerp(data.originalScale, 0.1);
+        this._setMeshOpacity(p, 1);
       } else if (STATE.mode === MODES.SCATTER) {
         targetVec
           .copy(data.scatterPos)
@@ -263,19 +299,30 @@ export class ParticleSystem {
         p.rotation.y += data.rotationSpeed.y;
         p.rotation.z += data.rotationSpeed.z;
         p.position.lerp(targetVec, 0.18);
+        this._setMeshOpacity(p, 1);
         return;
       } else if (STATE.mode === MODES.FOCUS) {
-        if (idx === STATE.focusTargetIndex) {
-          targetVec.set(0, 2, 35);
-          p.scale.lerp(new THREE.Vector3(4.5, 4.5, 4.5), 0.1);
-          p.rotation.set(0, 0, 0);
+        const isFocus = idx === STATE.focusTargetIndex && focusLocalTarget;
+        if (isFocus) {
+          targetVec.copy(focusLocalTarget);
+          p.scale.lerp(new THREE.Vector3(3.2, 3.2, 3.2), 0.12);
+          p.lookAt(camera.position);
+          this._setMeshOpacity(p, 1);
         } else {
           targetVec
-            .copy(data.treePos)
-            .multiplyScalar(1.5)
-            .add(new THREE.Vector3(0, 0, -20));
-          p.scale.lerp(data.originalScale, 0.1);
+            .copy(data.scatterPos)
+            .applyAxisAngle(yAxis, this.scatterAngle);
+          const wobble =
+            Math.sin(this.scatterAngle * 0.7 + (data.scatterPhase || 0)) * 0.6;
+          targetVec.y += wobble;
+          p.rotation.x += data.rotationSpeed.x;
+          p.rotation.y += data.rotationSpeed.y;
+          p.rotation.z += data.rotationSpeed.z;
+          p.scale.lerp(data.originalScale, 0.08);
+          this._setMeshOpacity(p, 1);
         }
+        p.position.lerp(targetVec, isFocus ? 0.18 : 0.16);
+        return;
       }
 
       p.position.lerp(targetVec, lerpSpeed);
@@ -285,21 +332,31 @@ export class ParticleSystem {
     this.idleYaw += 0.003;
     const targetYaw = this.idleYaw + STATE.handRotation.x;
     this.group.rotation.y += (targetYaw - this.group.rotation.y) * 0.08;
-    this.group.rotation.x +=
-      (STATE.handRotation.y - this.group.rotation.x) * 0.05;
+    // 锁定垂直旋转，避免镜头上下偏移
+    this.group.rotation.x += (0 - this.group.rotation.x) * 0.05;
+    this.lastMode = STATE.mode;
+  }
+
+  _setMeshOpacity(mesh, opacity) {
+    const material = Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material];
+    material.forEach((mat) => {
+      if (!mat) return;
+      if (mat.opacity === opacity && mat.transparent === opacity < 1) return;
+      mat.transparent = opacity < 1;
+      mat.opacity = opacity;
+    });
   }
 
   pickRandomPhoto() {
-    const photos = this.particles
-      .map((p, i) => ({ p, i }))
-      .filter((item) => item.p.userData.type === "PHOTO");
-    if (photos.length > 0) {
-      const choice = photos[Math.floor(Math.random() * photos.length)];
-      STATE.focusTargetIndex = choice.i;
+    const pool = this._nextFocusPool();
+    if (pool.length > 0) {
+      const choice = pool.pop();
+      STATE.focusTargetIndex = choice;
+      this.focusPool = pool;
     } else {
-      STATE.focusTargetIndex = Math.floor(
-        Math.random() * this.particles.length
-      );
+      STATE.focusTargetIndex = -1;
     }
   }
 
@@ -319,5 +376,71 @@ export class ParticleSystem {
       p.visible = active;
       if (active) used += 1;
     });
+  }
+
+  _invalidateFocusPool() {
+    this.focusPool = [];
+  }
+
+  _nextFocusPool() {
+    if (this.focusPool.length > 0) return this.focusPool;
+    const uploaded = [];
+    this.particles.forEach((p, idx) => {
+      if (p.userData.type === "PHOTO" && p.userData.isUploaded) {
+        uploaded.push(idx);
+      }
+    });
+    for (let i = uploaded.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [uploaded[i], uploaded[j]] = [uploaded[j], uploaded[i]];
+    }
+    this.focusPool = uploaded;
+    return this.focusPool;
+  }
+
+  _addStar() {
+    // 五角星：锐利轮廓+柔和高光，竖向放置
+    const outer = 1.6;
+    const inner = 0.72;
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+      const ax = Math.cos(a) * outer;
+      const ay = Math.sin(a) * outer;
+      const b = a + Math.PI / 5;
+      const bx = Math.cos(b) * inner;
+      const by = Math.sin(b) * inner;
+      if (i === 0) shape.moveTo(ax, ay);
+      else shape.lineTo(ax, ay);
+      shape.lineTo(bx, by);
+    }
+    shape.closePath();
+
+    const starGeo = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.5,
+      bevelEnabled: true,
+      bevelThickness: 0.18,
+      bevelSize: 0.15,
+      bevelSegments: 2,
+      bevelOffset: 0,
+    });
+    starGeo.computeVertexNormals();
+
+    const starMat = new THREE.MeshStandardMaterial({
+      color: 0xf6d25e,
+      metalness: 0.75,
+      roughness: 0.38,
+      emissive: 0xffc74a,
+      emissiveIntensity: 0.32,
+      envMapIntensity: 0.95,
+    });
+
+    const star = new THREE.Mesh(starGeo, starMat);
+    star.position.set(0, 15.8, 0);
+    // 朝前且尖端向上
+    star.rotation.set(0, 0, Math.PI);
+    star.castShadow = false;
+    star.receiveShadow = false;
+    this.group.add(star);
   }
 }

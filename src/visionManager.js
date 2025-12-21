@@ -93,10 +93,9 @@ export class VisionManager {
   _mapHandToScene(landmarks) {
     const p = landmarks[9];
     const x = (p.x - 0.5) * 2;
-    const y = (p.y - 0.5) * 2;
 
     STATE.handRotation.x = x * Math.PI;
-    STATE.handRotation.y = y * Math.PI * 0.5;
+    STATE.handRotation.y = 0; // 禁用竖向镜头偏移，仅保留水平旋转
   }
 
   _distance(p1, p2) {

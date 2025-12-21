@@ -23,6 +23,8 @@ export class App {
     this._start();
     this._camTargetZ = 50;
     this._camTargetY = 2;
+    this._focusCamPos = null;
+    this._suppressClickFocus = false;
   }
 
   _initScene() {
@@ -91,13 +93,12 @@ export class App {
   _initShortcuts() {
     // 桌面双击：切换 TREE/SCATTER；移动端双击（双击触摸）同效
     const toggle = () => {
-      if (STATE.mode === MODES.SCATTER) {
-        STATE.mode = MODES.TREE;
-        STATE.focusTargetIndex = -1;
-      } else {
-        STATE.mode = MODES.SCATTER;
-        STATE.focusTargetIndex = -1;
-      }
+      // 双击强制在 TREE/SCATTER 间切换，忽略当前是否 FOCUS
+      STATE.mode = STATE.mode === MODES.TREE ? MODES.SCATTER : MODES.TREE;
+      STATE.focusTargetIndex = -1;
+      this._focusCamPos = null;
+      this._suppressClickFocus = true;
+      setTimeout(() => (this._suppressClickFocus = false), 320);
     };
 
     this.renderer.domElement.addEventListener("dblclick", toggle);
@@ -107,13 +108,43 @@ export class App {
       "touchend",
       (e) => {
         const now = Date.now();
-        if (now - lastTap < 350) {
+        const delta = now - lastTap;
+        if (delta < 350) {
           toggle();
+          lastTap = now;
+          return;
+        }
+        // 单击（非双击）在 SCATTER 进入 FOCUS；FOCUS 时单击返回 SCATTER
+        if (STATE.mode === MODES.SCATTER) {
+          STATE.mode = MODES.FOCUS;
+          this.particleSystem?.pickRandomPhoto();
+          this._suppressClickFocus = true;
+          setTimeout(() => (this._suppressClickFocus = false), 320);
+        } else if (STATE.mode === MODES.FOCUS) {
+          STATE.mode = MODES.SCATTER;
+          STATE.focusTargetIndex = -1;
+          this._focusCamPos = null;
+          this._suppressClickFocus = true;
+          setTimeout(() => (this._suppressClickFocus = false), 320);
         }
         lastTap = now;
       },
       { passive: true }
     );
+
+    // 桌面单击在 SCATTER 进入 FOCUS，避免与双击冲突
+    this.renderer.domElement.addEventListener("click", (e) => {
+      if (e.detail > 1) return; // 双击情形交由 dblclick 处理
+      if (this._suppressClickFocus) return;
+      if (STATE.mode === MODES.SCATTER) {
+        STATE.mode = MODES.FOCUS;
+        this.particleSystem?.pickRandomPhoto();
+      } else if (STATE.mode === MODES.FOCUS) {
+        STATE.mode = MODES.SCATTER;
+        STATE.focusTargetIndex = -1;
+        this._focusCamPos = null;
+      }
+    });
   }
 
   _initControls() {
@@ -122,6 +153,10 @@ export class App {
     this.controls.enablePan = false;
     this.controls.enableZoom = false;
     this.controls.rotateSpeed = this.device.isMobile ? 0.5 : 0.9;
+    this.controls.target.set(0, 2, 0);
+    const horizontalOnly = Math.PI / 2;
+    this.controls.minPolarAngle = horizontalOnly;
+    this.controls.maxPolarAngle = horizontalOnly;
   }
 
   _initPostProcessing() {
@@ -162,21 +197,35 @@ export class App {
     // 固定视角目标，避免外部输入（手势/触控）改变相机指向
     this.controls.target.lerp(new THREE.Vector3(0, 2, 0), 0.1);
 
-    const targetDist =
-      STATE.mode === MODES.SCATTER ? 55 : STATE.mode === MODES.FOCUS ? 45 : 50;
-    const targetY = STATE.mode === MODES.SCATTER ? 1.8 : 2;
+    // FOCUS 阶段锁定当前镜头位置，不再推拉，仅照片前移
+    if (STATE.mode === MODES.FOCUS) {
+      if (!this._focusCamPos) {
+        this._focusCamPos = this.camera.position.clone();
+      }
+      this.camera.position.copy(this._focusCamPos);
+    } else {
+      this._focusCamPos = null;
+      // FOCUS 保持与 SCATTER 相同的相机距离，仅移动照片靠近
+      const targetDist = STATE.mode === MODES.SCATTER ? 55 : 50;
+      const targetY = STATE.mode === MODES.SCATTER ? 1.8 : 2;
 
-    // 方向由 OrbitControls 决定，半径锁定 targetDist
-    const dir = this.camera.position.clone().sub(this.controls.target);
-    const len = dir.length() || targetDist;
-    dir.divideScalar(len);
-    const desiredPos = this.controls.target
-      .clone()
-      .addScaledVector(dir, targetDist);
-    desiredPos.y = THREE.MathUtils.lerp(this.camera.position.y, targetY, 0.05);
-    this.camera.position.lerp(desiredPos, 0.08);
+      // 方向由 OrbitControls 决定，半径锁定 targetDist
+      const dir = this.camera.position.clone().sub(this.controls.target);
+      const len = dir.length() || targetDist;
+      dir.divideScalar(len);
+      const desiredPos = this.controls.target
+        .clone()
+        .addScaledVector(dir, targetDist);
+      desiredPos.y = THREE.MathUtils.lerp(
+        this.camera.position.y,
+        targetY,
+        0.05
+      );
+      this.camera.position.lerp(desiredPos, 0.08);
+    }
 
-    if (this.particleSystem) this.particleSystem.update();
+    if (this.particleSystem)
+      this.particleSystem.update(this.camera, this.controls);
     if (this.controls) this.controls.update();
     if (this.performanceGovernor) this.performanceGovernor.tick();
     this.composer.render();
