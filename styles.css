@@ -1,0 +1,215 @@
+/* --- 基础样式 --- */
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #000000;
+  font-family: "Times New Roman", serif;
+  color: #fceea7;
+}
+
+#canvas-container {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* UI Overlay */
+#ui-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none; /* 让鼠标事件穿透到 Canvas */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+  box-sizing: border-box;
+  transition: opacity 0.5s ease;
+}
+
+h1 {
+  font-family: "Cinzel", serif;
+  font-size: 56px;
+  text-align: center;
+  margin-top: 20px;
+  background: linear-gradient(to bottom, #ffffff, #d4af37);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+  pointer-events: auto;
+}
+
+/* Controls */
+.upload-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border: 1px solid #d4af37;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.btn-gold {
+  background: transparent;
+  border: 1px solid #d4af37;
+  color: #d4af37;
+  padding: 10px 20px;
+  font-family: "Cinzel", serif;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.btn-gold:hover {
+  background: #d4af37;
+  color: #000;
+  box-shadow: 0 0 15px #d4af37;
+}
+
+.hint-text {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.7;
+  color: #fceea7;
+}
+
+/* Loader */
+#loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 1s ease;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(212, 175, 55, 0.1);
+  border-top: 4px solid #d4af37;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+.loader-text {
+  font-family: "Cinzel", serif;
+  color: #d4af37;
+  letter-spacing: 2px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hidden CV Elements */
+.vision-debug {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  opacity: 0; /* Hidden but active */
+  pointer-events: none;
+}
+
+#file-input {
+  display: none;
+}
+
+/* Help modal */
+#help-button {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  pointer-events: auto;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+#help-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 50;
+}
+
+#help-modal.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.help-content {
+  width: 320px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid #d4af37;
+  border-radius: 12px;
+  padding: 20px;
+  color: #fceea7;
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.2);
+}
+
+.help-content h2 {
+  margin: 0;
+  font-family: "Cinzel", serif;
+  color: #d4af37;
+  font-size: 20px;
+}
+
+.help-content ul {
+  padding-left: 18px;
+  margin: 12px 0 0 0;
+  line-height: 1.5;
+}
+
+.help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.help-close {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  h1 {
+    font-size: 32px;
+  }
+  .help-content {
+    width: 90%;
+  }
+}

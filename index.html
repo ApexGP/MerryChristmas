@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Christmas Tree Vision</title>
+
+    <!-- 字体引入 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+
+    <!-- Import Map -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+          "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <!-- Loading Screen -->
+    <div id="loader">
+      <div class="spinner"></div>
+      <div class="loader-text">LOADING HOLIDAY MAGIC</div>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+      <h1>Merry Christmas</h1>
+
+      <button id="help-button" class="btn-gold">Help</button>
+      <div id="help-modal">
+        <div class="help-content">
+          <div class="help-header">
+            <h2>使用说明</h2>
+            <button class="help-close btn-gold">Close</button>
+          </div>
+          <ul>
+            <li>允许摄像头：启用手势魔法。</li>
+            <li>捏合手指：随机聚焦一张照片。</li>
+            <li>握拳：重组成圣诞树；张开手：散开漂浮。</li>
+            <li>桌面：鼠标拖拽视角；移动端：触控旋转视角。</li>
+            <li>点击 Add Memories 上传图片作为装饰。</li>
+            <li>按 H 或双击：显示/隐藏控制层。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="upload-wrapper">
+        <input type="file" id="file-input" accept="image/*" />
+        <button
+          class="btn-gold"
+          onclick="document.getElementById('file-input').click()"
+        >
+          Add Memories
+        </button>
+        <span class="hint-text">Press 'H' to Hide Controls</span>
+      </div>
+    </div>
+
+    <!-- 3D Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Hidden CV Elements -->
+    <div class="vision-debug">
+      <video
+        id="webcam"
+        style="width: 160px; height: 120px"
+        autoplay
+        playsinline
+      ></video>
+      <canvas id="vision_canvas" width="160" height="120"></canvas>
+    </div>
+
+    <!-- Logic -->
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
