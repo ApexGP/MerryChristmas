@@ -25,7 +25,9 @@ export class VisionManager {
       });
 
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      this.stream = stream;
       this.video.srcObject = stream;
+      await this.video.play().catch(() => {});
 
       return true;
     } catch (e) {
@@ -36,7 +38,15 @@ export class VisionManager {
   }
 
   predict() {
-    if (!this.handLandmarker || !this.video.videoWidth) return;
+    if (!this.handLandmarker || !this.video) {
+      requestAnimationFrame(() => this.predict());
+      return;
+    }
+
+    if (!this.video.videoWidth || !this.video.videoHeight) {
+      requestAnimationFrame(() => this.predict());
+      return;
+    }
 
     if (this.video.currentTime !== this.lastVideoTime) {
       this.lastVideoTime = this.video.currentTime;
@@ -60,7 +70,7 @@ export class VisionManager {
     const wrist = landmarks[0];
 
     const pinchDist = this._distance(thumbTip, indexTip);
-    if (pinchDist < 0.05) {
+    if (pinchDist < 0.05 && STATE.mode === MODES.SCATTER) {
       if (STATE.mode !== MODES.FOCUS) {
         STATE.mode = MODES.FOCUS;
         this.onFocusRequest?.();

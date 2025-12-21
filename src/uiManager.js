@@ -1,17 +1,21 @@
 import * as THREE from "three";
 
 export class UIManager {
-  constructor(onFileLoaded) {
+  constructor(onFileLoaded, options = {}) {
     this.loader = document.getElementById("loader");
     this.uiLayer = document.getElementById("ui-layer");
     this.controlsVisible = true;
     this.onFileLoaded = onFileLoaded;
+    this.isMobile = !!options.isMobile;
+    this.hideTimer = null;
+    this.longPressTimer = null;
 
     this.helpButton = document.getElementById("help-button");
     this.helpModal = document.getElementById("help-modal");
     this.helpClose = this.helpModal.querySelector(".help-close");
 
     this._initEvents();
+    if (this.isMobile) this._initMobileAutoHide();
   }
 
   hideLoader() {
@@ -20,11 +24,11 @@ export class UIManager {
   }
 
   _initEvents() {
-    window.addEventListener("keydown", (e) => {
-      if (e.key.toLowerCase() === "h") this._toggleUI();
-    });
-
-    document.addEventListener("dblclick", () => this._toggleUI());
+    if (!this.isMobile) {
+      window.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === "h") this._toggleUI();
+      });
+    }
 
     const fileInput = document.getElementById("file-input");
     fileInput.addEventListener("change", (e) => {
@@ -49,8 +53,8 @@ export class UIManager {
   }
 
   _toggleUI() {
-    this.controlsVisible = !this.controlsVisible;
-    this.uiLayer.style.opacity = this.controlsVisible ? "1" : "0";
+    this._setUIVisible(!this.controlsVisible);
+    if (this.isMobile && this.controlsVisible) this._resetHideTimer();
   }
 
   _toggleHelp(forceState) {
@@ -59,5 +63,46 @@ export class UIManager {
         ? forceState
         : !this.helpModal.classList.contains("open");
     this.helpModal.classList.toggle("open", shouldOpen);
+  }
+
+  _setUIVisible(visible) {
+    this.controlsVisible = visible;
+    this.uiLayer.style.opacity = visible ? "1" : "0";
+  }
+
+  _initMobileAutoHide() {
+    const activity = () => this._handleMobileActivity();
+    window.addEventListener("touchstart", (e) => {
+      activity();
+      this._scheduleLongPress();
+    });
+    window.addEventListener("touchmove", activity, { passive: true });
+    window.addEventListener("touchend", () => {
+      activity();
+      this._cancelLongPress();
+    });
+    this._resetHideTimer();
+  }
+
+  _handleMobileActivity() {
+    if (!this.controlsVisible) return;
+    this._resetHideTimer();
+  }
+
+  _resetHideTimer() {
+    clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => this._setUIVisible(false), 5000);
+  }
+
+  _scheduleLongPress() {
+    this._cancelLongPress();
+    this.longPressTimer = setTimeout(() => {
+      this._setUIVisible(true);
+      this._resetHideTimer();
+    }, 700);
+  }
+
+  _cancelLongPress() {
+    clearTimeout(this.longPressTimer);
   }
 }

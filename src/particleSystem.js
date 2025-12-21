@@ -7,7 +7,10 @@ export class ParticleSystem {
     this.scene = scene;
     this.particles = [];
     this.group = new THREE.Group();
+    this.group.scale.set(1.2, 1.2, 1.2);
     this.scene.add(this.group);
+    this.idleYaw = 0;
+    this.scatterAngle = 0;
 
     this.config = {
       mainCount: 1500,
@@ -30,28 +33,40 @@ export class ParticleSystem {
     return {
       goldBox: new THREE.MeshStandardMaterial({
         color: 0xd4af37,
-        roughness: 0.3,
-        metalness: 0.8,
+        roughness: 0.22,
+        metalness: 0.95,
+        emissive: 0x332200,
+        emissiveIntensity: 0.45,
+        envMapIntensity: 1.6,
       }),
       greenBox: new THREE.MeshStandardMaterial({
         color: 0x004400,
-        roughness: 0.8,
+        roughness: 0.65,
+        metalness: 0.35,
+        emissive: 0x001800,
+        emissiveIntensity: 0.25,
+        envMapIntensity: 1.1,
       }),
       goldSphere: new THREE.MeshPhysicalMaterial({
         color: 0xd4af37,
-        roughness: 0.2,
+        roughness: 0.15,
         metalness: 1.0,
         clearcoat: 1.0,
+        envMapIntensity: 2.0,
       }),
       redSphere: new THREE.MeshPhysicalMaterial({
         color: 0xcc0000,
-        roughness: 0.2,
-        metalness: 0.4,
+        roughness: 0.15,
+        metalness: 0.5,
         clearcoat: 1.0,
+        emissive: 0x330000,
+        emissiveIntensity: 0.5,
+        envMapIntensity: 1.7,
       }),
       candy: new THREE.MeshStandardMaterial({
         map: candyTexture,
-        roughness: 0.5,
+        roughness: 0.4,
+        metalness: 0.1,
       }),
       photo: new THREE.MeshBasicMaterial({
         map: TextureFactory.createDefaultPhotoTexture(),
@@ -68,7 +83,7 @@ export class ParticleSystem {
 
     return {
       box: new THREE.BoxGeometry(0.5, 0.5, 0.5),
-      sphere: new THREE.SphereGeometry(0.3, 16, 16),
+      sphere: new THREE.SphereGeometry(0.3, 22, 16),
       candy: new THREE.TubeGeometry(curve, 8, 0.1, 8, false),
       photoFrame: new THREE.BoxGeometry(1.2, 1.2, 0.1),
     };
@@ -122,9 +137,11 @@ export class ParticleSystem {
   }
 
   _addParticle(mesh, type, index, total) {
-    const t = index / total;
-    const height = 20 * (1 - t) - 10;
-    const maxRadius = 8;
+    // 使用非线性分布让更多粒子落在底部，提升下缘密度
+    const tLinear = index / total;
+    const t = Math.pow(tLinear, 0.7);
+    const height = 26 * (1 - t) - 13;
+    const maxRadius = 10;
     const radius = maxRadius * t;
     const angle = t * 50 * Math.PI;
 
@@ -142,6 +159,31 @@ export class ParticleSystem {
       treePos.multiplyScalar(1.5);
     }
 
+    // 散开目标：分层环绕分布（圆柱壳+轻锥形），半径随高度递减，贴近 TREE.html 视觉
+    const heightNorm = (treePos.y + 13) / 26; // 0 底部，1 顶部
+    const theta = Math.random() * Math.PI * 2;
+    const radialPow = Math.pow(Math.random(), 0.6); // 更偏向外圈
+    const baseRadius = 12 + radialPow * 20; // 12-32
+    const radialJitter = 1 + (Math.random() - 0.5) * 0.06;
+    const r = baseRadius * radialJitter;
+    const scatterPos = new THREE.Vector3(
+      Math.cos(theta) * r,
+      THREE.MathUtils.clamp(-8 + Math.random() * 16, -8, 8),
+      Math.sin(theta) * r
+    );
+
+    // 雪花（DUST）在散开时单独更大半径与更高层，模拟雪层
+    if (type === "DUST") {
+      const dustR = 18 + Math.random() * 18; // 18-36
+      const dustTheta = Math.random() * Math.PI * 2;
+      const dustY = THREE.MathUtils.clamp(-6 + Math.random() * 18, -6, 12);
+      scatterPos.set(
+        Math.cos(dustTheta) * dustR,
+        dustY,
+        Math.sin(dustTheta) * dustR
+      );
+    }
+
     mesh.position.set(
       (Math.random() - 0.5) * 50,
       (Math.random() - 0.5) * 50,
@@ -152,6 +194,8 @@ export class ParticleSystem {
     mesh.userData = {
       type,
       treePos,
+      scatterPos,
+      scatterPhase: Math.random() * Math.PI * 2,
       velocity: new THREE.Vector3(
         (Math.random() - 0.5) * 0.1,
         (Math.random() - 0.5) * 0.1,
@@ -160,7 +204,7 @@ export class ParticleSystem {
       rotationSpeed: new THREE.Vector3(
         (Math.random() - 0.5) * 0.05,
         (Math.random() - 0.5) * 0.05,
-        0
+        (Math.random() - 0.5) * 0.05
       ),
       originalScale: mesh.scale.clone(),
       active: true,
@@ -183,8 +227,18 @@ export class ParticleSystem {
   }
 
   update() {
+    const now = performance.now();
+    const glow = 0.35 + 0.2 * Math.sin(now * 0.003);
+    this.materials.goldBox.emissiveIntensity = glow;
+    this.materials.goldSphere.emissiveIntensity = glow + 0.1;
+
     const targetVec = new THREE.Vector3();
     const lerpSpeed = 0.05;
+    const yAxis = new THREE.Vector3(0, 1, 0);
+
+    if (STATE.mode === MODES.SCATTER) {
+      this.scatterAngle += 0.0055;
+    }
 
     this.particles.forEach((p, idx) => {
       const data = p.userData;
@@ -195,20 +249,20 @@ export class ParticleSystem {
       }
       p.visible = true;
 
-      if (STATE.mode === MODES.SCATTER) {
-        p.rotation.x += data.rotationSpeed.x;
-        p.rotation.y += data.rotationSpeed.y;
-      }
-
       if (STATE.mode === MODES.TREE) {
         targetVec.copy(data.treePos);
         p.scale.lerp(data.originalScale, 0.1);
       } else if (STATE.mode === MODES.SCATTER) {
-        p.position.add(data.velocity);
-        if (p.position.length() > 25) {
-          p.position.setLength(24);
-          data.velocity.negate();
-        }
+        targetVec
+          .copy(data.scatterPos)
+          .applyAxisAngle(yAxis, this.scatterAngle);
+        const wobble =
+          Math.sin(this.scatterAngle * 0.7 + (data.scatterPhase || 0)) * 0.6;
+        targetVec.y += wobble;
+        p.rotation.x += data.rotationSpeed.x;
+        p.rotation.y += data.rotationSpeed.y;
+        p.rotation.z += data.rotationSpeed.z;
+        p.position.lerp(targetVec, 0.18);
         return;
       } else if (STATE.mode === MODES.FOCUS) {
         if (idx === STATE.focusTargetIndex) {
@@ -227,8 +281,10 @@ export class ParticleSystem {
       p.position.lerp(targetVec, lerpSpeed);
     });
 
-    this.group.rotation.y +=
-      (STATE.handRotation.x - this.group.rotation.y) * 0.05;
+    // 持续自转：基础角度累积，再叠加手势偏移，确保即便无输入也持续逆时针
+    this.idleYaw += 0.003;
+    const targetYaw = this.idleYaw + STATE.handRotation.x;
+    this.group.rotation.y += (targetYaw - this.group.rotation.y) * 0.08;
     this.group.rotation.x +=
       (STATE.handRotation.y - this.group.rotation.x) * 0.05;
   }

@@ -6,11 +6,13 @@ export class PerformanceGovernor {
     this.samples = [];
     this.lastTime = performance.now();
     this.lastAdjust = this.lastTime;
-    this.minRatio = 0.75;
-    this.maxRatio = Math.min(window.devicePixelRatio || 1, 1.3);
+    this.lastEmergency = 0;
+    this.cooldownMs = 3500;
+    this.minRatio = 1.05;
+    this.maxRatio = Math.min(window.devicePixelRatio || 1, 1.6);
     this.pixelRatio = Math.min(
       this.maxRatio,
-      Math.max(1, (window.devicePixelRatio || 1) * 0.9)
+      Math.max(this.minRatio, (window.devicePixelRatio || 1) * 0.95)
     );
     this.activeFraction = 1;
 
@@ -36,15 +38,28 @@ export class PerformanceGovernor {
   }
 
   _rebalance(avg) {
-    if (avg < 58) {
-      const nextRatio = Math.max(this.minRatio, this.pixelRatio - 0.1);
-      const nextFraction = Math.max(0.55, this.activeFraction - 0.1);
+    const now = performance.now();
+    // 应对模式切换瞬时掉帧：快速降级一次，进入冷却期，避免频繁抖动
+    if (avg < 45 && now - this.lastEmergency > this.cooldownMs) {
+      const emergRatio = this.minRatio;
+      const emergFraction = Math.max(0.75, this.activeFraction - 0.15);
+      this.lastEmergency = now;
+      this._apply(emergRatio, emergFraction);
+      return;
+    }
+    if (now - this.lastEmergency < this.cooldownMs) {
+      return;
+    }
+
+    if (avg < 55) {
+      const nextRatio = Math.max(this.minRatio, this.pixelRatio - 0.08);
+      const nextFraction = Math.max(0.8, this.activeFraction - 0.1);
       this._apply(nextRatio, nextFraction);
       return;
     }
-    if (avg > 70) {
-      const nextRatio = Math.min(this.maxRatio, this.pixelRatio + 0.05);
-      const nextFraction = Math.min(1, this.activeFraction + 0.05);
+    if (avg > 65) {
+      const nextRatio = Math.min(this.maxRatio, this.pixelRatio + 0.04);
+      const nextFraction = Math.min(1, this.activeFraction + 0.04);
       this._apply(nextRatio, nextFraction);
     }
   }

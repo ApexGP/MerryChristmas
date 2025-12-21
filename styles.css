@@ -2,7 +2,12 @@
 body {
   margin: 0;
   overflow: hidden;
-  background-color: #000000;
+  background: radial-gradient(
+      ellipse at 50% 20%,
+      rgba(212, 175, 55, 0.08),
+      transparent 55%
+    ),
+    #000000;
   font-family: "Times New Roman", serif;
   color: #fceea7;
 }

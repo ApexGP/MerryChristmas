@@ -19,11 +19,16 @@ export class App {
     this._initScene();
     this._initPostProcessing();
     this._initManagers();
+    this._initShortcuts();
     this._start();
+    this._camTargetZ = 50;
+    this._camTargetY = 2;
   }
 
   _initScene() {
     this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x000000);
+    this.scene.fog = new THREE.FogExp2(0x000000, 0.008);
 
     this.camera = new THREE.PerspectiveCamera(
       60,
@@ -33,11 +38,17 @@ export class App {
     );
     this.camera.position.set(0, 2, 50);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      powerPreference: "high-performance",
+    });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.3));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.toneMapping = THREE.ReinhardToneMapping;
     this.renderer.toneMappingExposure = 2.2;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.setClearColor(0x000000, 1);
     this.container.appendChild(this.renderer.domElement);
 
     const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
@@ -51,6 +62,10 @@ export class App {
 
     const point = new THREE.PointLight(0xffaa00, 2, 50);
     this.scene.add(point);
+
+    const fill = new THREE.DirectionalLight(0xffeebb, 0.8);
+    fill.position.set(0, 0, 50);
+    this.scene.add(fill);
 
     const spotGold = new THREE.SpotLight(0xffd700, 1200);
     spotGold.position.set(30, 40, 40);
@@ -73,6 +88,34 @@ export class App {
     window.addEventListener("resize", this._onResize.bind(this));
   }
 
+  _initShortcuts() {
+    // 桌面双击：切换 TREE/SCATTER；移动端双击（双击触摸）同效
+    const toggle = () => {
+      if (STATE.mode === MODES.SCATTER) {
+        STATE.mode = MODES.TREE;
+        STATE.focusTargetIndex = -1;
+      } else {
+        STATE.mode = MODES.SCATTER;
+        STATE.focusTargetIndex = -1;
+      }
+    };
+
+    this.renderer.domElement.addEventListener("dblclick", toggle);
+
+    let lastTap = 0;
+    this.renderer.domElement.addEventListener(
+      "touchend",
+      (e) => {
+        const now = Date.now();
+        if (now - lastTap < 350) {
+          toggle();
+        }
+        lastTap = now;
+      },
+      { passive: true }
+    );
+  }
+
   _initControls() {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -88,16 +131,17 @@ export class App {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.38,
-      0.35,
+      0.45,
+      0.4,
       0.7
     );
     this.composer.addPass(bloomPass);
   }
 
   _initManagers() {
-    this.uiManager = new UIManager((texture) =>
-      this.particleSystem?.addPhoto(texture)
+    this.uiManager = new UIManager(
+      (texture) => this.particleSystem?.addPhoto(texture),
+      { isMobile: this.device.isMobile }
     );
     this.visionManager = new VisionManager(() =>
       this.particleSystem?.pickRandomPhoto()
@@ -115,6 +159,23 @@ export class App {
   }
 
   _render() {
+    // 固定视角目标，避免外部输入（手势/触控）改变相机指向
+    this.controls.target.lerp(new THREE.Vector3(0, 2, 0), 0.1);
+
+    const targetDist =
+      STATE.mode === MODES.SCATTER ? 55 : STATE.mode === MODES.FOCUS ? 45 : 50;
+    const targetY = STATE.mode === MODES.SCATTER ? 1.8 : 2;
+
+    // 方向由 OrbitControls 决定，半径锁定 targetDist
+    const dir = this.camera.position.clone().sub(this.controls.target);
+    const len = dir.length() || targetDist;
+    dir.divideScalar(len);
+    const desiredPos = this.controls.target
+      .clone()
+      .addScaledVector(dir, targetDist);
+    desiredPos.y = THREE.MathUtils.lerp(this.camera.position.y, targetY, 0.05);
+    this.camera.position.lerp(desiredPos, 0.08);
+
     if (this.particleSystem) this.particleSystem.update();
     if (this.controls) this.controls.update();
     if (this.performanceGovernor) this.performanceGovernor.tick();
