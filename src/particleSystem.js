@@ -11,6 +11,7 @@ export class ParticleSystem {
     this.scene.add(this.group);
     this.idleYaw = 0;
     this.scatterAngle = 0;
+    this.frozenYaw = null;
 
     this.config = {
       mainCount: 1500,
@@ -329,9 +330,21 @@ export class ParticleSystem {
     });
 
     // 持续自转：基础角度累积，再叠加手势偏移，确保即便无输入也持续逆时针
-    this.idleYaw += 0.003;
-    const targetYaw = this.idleYaw + STATE.handRotation.x;
-    this.group.rotation.y += (targetYaw - this.group.rotation.y) * 0.08;
+    if (modeChanged && STATE.mode === MODES.FOCUS) {
+      this.frozenYaw = this.group.rotation.y;
+    } else if (modeChanged && STATE.mode !== MODES.FOCUS) {
+      this.frozenYaw = null;
+    }
+
+    if (STATE.mode === MODES.FOCUS) {
+      const targetYaw = this.frozenYaw ?? this.group.rotation.y;
+      this.group.rotation.y += (targetYaw - this.group.rotation.y) * 0.12;
+    } else {
+      this.idleYaw += 0.003;
+      const targetYaw = this.idleYaw + STATE.handRotation.x;
+      this.group.rotation.y += (targetYaw - this.group.rotation.y) * 0.08;
+      this.frozenYaw = null;
+    }
     // 锁定垂直旋转，避免镜头上下偏移
     this.group.rotation.x += (0 - this.group.rotation.x) * 0.05;
     this.lastMode = STATE.mode;

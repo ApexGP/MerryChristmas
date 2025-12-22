@@ -25,6 +25,7 @@ export class App {
     this._camTargetY = 2;
     this._focusCamPos = null;
     this._suppressClickFocus = false;
+    this._controlsFrozen = false;
   }
 
   _initScene() {
@@ -193,9 +194,23 @@ export class App {
     this.renderer.setAnimationLoop(this._render.bind(this));
   }
 
+  _syncControlLock() {
+    if (!this.controls) return;
+    const shouldFreeze = STATE.mode === MODES.FOCUS;
+    if (shouldFreeze === this._controlsFrozen) return;
+    this._controlsFrozen = shouldFreeze;
+    this.controls.enabled = !shouldFreeze;
+    if (!shouldFreeze) {
+      this.controls.update();
+    }
+  }
+
   _render() {
+    this._syncControlLock();
     // 固定视角目标，避免外部输入（手势/触控）改变相机指向
-    this.controls.target.lerp(new THREE.Vector3(0, 2, 0), 0.1);
+    if (this.controls && STATE.mode !== MODES.FOCUS) {
+      this.controls.target.lerp(new THREE.Vector3(0, 2, 0), 0.1);
+    }
 
     // FOCUS 阶段锁定当前镜头位置，不再推拉，仅照片前移
     if (STATE.mode === MODES.FOCUS) {
@@ -226,7 +241,7 @@ export class App {
 
     if (this.particleSystem)
       this.particleSystem.update(this.camera, this.controls);
-    if (this.controls) this.controls.update();
+    if (this.controls && STATE.mode !== MODES.FOCUS) this.controls.update();
     if (this.performanceGovernor) this.performanceGovernor.tick();
     this.composer.render();
   }
