@@ -28,6 +28,9 @@ export class ParticleSystem {
       normal: { env: 2.2, emissive: 0.25 },
       focus: { env: 1.2, emissive: 0.12 },
     };
+    this.focusScaleBase = 6;
+    this.focusScaleCap = 16;
+    this.photoNativeMaxScale = 24;
 
     this._initParticles();
     this.setActiveFraction(1);
@@ -42,6 +45,7 @@ export class ParticleSystem {
   _initMaterials() {
     const candyTexture = TextureFactory.createCandyCaneTexture();
     const defaultPhotoTexture = TextureFactory.createDefaultPhotoTexture();
+    this._tunePhotoTexture(defaultPhotoTexture);
 
     return {
       goldBox: new THREE.MeshStandardMaterial({
@@ -106,12 +110,13 @@ export class ParticleSystem {
       box: new THREE.BoxGeometry(0.5, 0.5, 0.5),
       sphere: new THREE.SphereGeometry(0.3, 22, 16),
       candy: new THREE.TubeGeometry(curve, 8, 0.1, 8, false),
-      photoFrame: new THREE.BoxGeometry(1.2, 1.2, 0.1),
+      photoFrame: new THREE.BoxGeometry(1.15, 1.15, 0.1),
       photoPlane: new THREE.PlaneGeometry(1.05, 1.05),
     };
   }
 
   _createPhotoFrame(texture) {
+    this._tunePhotoTexture(texture);
     const group = new THREE.Group();
     const frame = new THREE.Mesh(
       this.geometries.photoFrame,
@@ -128,7 +133,9 @@ export class ParticleSystem {
       sheen: 0,
     });
     const photoPlane = new THREE.Mesh(this.geometries.photoPlane, photoMat);
+    this._applyPhotoAspect(photoPlane, texture, frame);
     photoPlane.position.z = 0.055;
+    group.userData.focusScale = this._computePhotoNativeScale(texture);
     group.add(frame);
     group.add(photoPlane);
     return group;
@@ -339,7 +346,11 @@ export class ParticleSystem {
         const isFocus = idx === STATE.focusTargetIndex && focusLocalTarget;
         if (isFocus) {
           targetVec.copy(focusLocalTarget);
-          p.scale.lerp(new THREE.Vector3(3.2, 3.2, 3.2), 0.12);
+          const focusScale = this._getFocusScale(p);
+          p.scale.lerp(
+            new THREE.Vector3(focusScale, focusScale, focusScale),
+            0.12
+          );
           p.lookAt(camera.position);
           this._setMeshOpacity(p, 1);
         } else {
@@ -412,8 +423,7 @@ export class ParticleSystem {
       frameMat.envMap = envMap;
       dirty = true;
     }
-    const tone =
-      this.photoFrameTone?.[isFocus ? "focus" : "normal"] ?? null;
+    const tone = this.photoFrameTone?.[isFocus ? "focus" : "normal"] ?? null;
     if (tone) {
       if (frameMat.envMapIntensity !== tone.env) {
         frameMat.envMapIntensity = tone.env;
@@ -435,6 +445,86 @@ export class ParticleSystem {
       dirty = true;
     }
     if (dirty) frameMat.needsUpdate = true;
+  }
+
+  _applyPhotoAspect(photoPlane, texture, frame = null) {
+    if (!photoPlane || !texture) return;
+    const planeBase =
+      this.geometries?.photoPlane?.parameters?.width ||
+      this.geometries?.photoPlane?.parameters?.height ||
+      1.05;
+    const frameBase =
+      this.geometries?.photoFrame?.parameters?.width ||
+      this.geometries?.photoFrame?.parameters?.height ||
+      planeBase;
+    const frameBorder = Math.max(frameBase - planeBase, 0);
+    const applyScale = (ratio) => {
+      const maxSide = planeBase;
+      const targetWidth = ratio >= 1 ? maxSide : maxSide * ratio;
+      const targetHeight = ratio >= 1 ? maxSide / ratio : maxSide;
+      photoPlane.scale.set(
+        targetWidth / planeBase,
+        targetHeight / planeBase,
+        1
+      );
+      const frameMesh =
+        frame ||
+        (photoPlane.parent?.children || []).find(
+          (c) => c !== photoPlane && c.geometry === this.geometries.photoFrame
+        );
+      if (frameMesh) {
+        const frameWidth = targetWidth + frameBorder;
+        const frameHeight = targetHeight + frameBorder;
+        frameMesh.scale.set(frameWidth / frameBase, frameHeight / frameBase, 1);
+      }
+    };
+    const img = texture.image;
+    if (img && img.width && img.height) {
+      applyScale(img.width / img.height);
+    } else if (!texture.onUpdate) {
+      texture.onUpdate = () => {
+        const texImg = texture.image;
+        const ratio =
+          texImg && texImg.width && texImg.height
+            ? texImg.width / texImg.height
+            : 1;
+        applyScale(ratio);
+        texture.onUpdate = null;
+      };
+      texture.needsUpdate = true;
+    } else {
+      applyScale(1);
+    }
+  }
+
+  _tunePhotoTexture(texture) {
+    if (!texture) return;
+    const img = texture.image;
+    const isPOT =
+      img &&
+      THREE.MathUtils.isPowerOfTwo(img.width || 0) &&
+      THREE.MathUtils.isPowerOfTwo(img.height || 0);
+    texture.generateMipmaps = !!isPOT;
+    texture.minFilter = isPOT
+      ? THREE.LinearMipmapLinearFilter
+      : THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = Math.max(texture.anisotropy || 1, 12);
+    texture.needsUpdate = true;
+  }
+
+  _computePhotoNativeScale(texture) {
+    const img = texture?.image;
+    if (!img || !img.width || !img.height) return 1;
+    const maxSide = Math.max(img.width, img.height);
+    const boost = maxSide / 1200;
+    return THREE.MathUtils.clamp(boost, 1, this.photoNativeMaxScale);
+  }
+
+  _getFocusScale(mesh) {
+    const nativeScale = mesh?.userData?.focusScale || 1;
+    const target = this.focusScaleBase * nativeScale;
+    return Math.min(target, this.focusScaleCap);
   }
 
   pickRandomPhoto() {
