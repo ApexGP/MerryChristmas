@@ -137,6 +137,19 @@ h1 {
   letter-spacing: 2px;
 }
 
+.loader-subtext {
+  color: #f6e9b5;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.loader-subtext.zh {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
 @keyframes spin {
   0% {
     transform: rotate(0deg);

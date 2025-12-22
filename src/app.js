@@ -49,7 +49,13 @@ export class App {
       powerPreference: "high-performance",
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    const maxPR =
+      this.device?.tier === "low"
+        ? 1.2
+        : this.device?.tier === "medium"
+        ? 1.4
+        : 1.6;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
     this.renderer.toneMapping = THREE.ReinhardToneMapping;
     this.renderer.toneMappingExposure = 2.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -184,7 +190,10 @@ export class App {
 
     this.uiManager = new UIManager(
       (texture) => this.particleSystem?.addPhoto(texture),
-      { isMobile: this.device.isMobile, treeShareManager: this.treeShareManager }
+      {
+        isMobile: this.device.isMobile,
+        treeShareManager: this.treeShareManager,
+      }
     );
     this.visionManager = new VisionManager(() =>
       this.particleSystem?.pickRandomPhoto()

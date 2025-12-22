@@ -13,10 +13,11 @@ export function detectDeviceProfile() {
   if (score >= 9) tier = "high";
   else if (score <= 5) tier = "low";
 
+  // Lighter particle budgets to speed up startup on lower tiers
   const presets = {
-    high: { mainCount: 1100, dustCount: 1400, photoCount: 16 },
-    medium: { mainCount: 800, dustCount: 1100, photoCount: 12 },
-    low: { mainCount: 550, dustCount: 700, photoCount: 8 },
+    high: { mainCount: 1000, dustCount: 1200, photoCount: 14 },
+    medium: { mainCount: 800, dustCount: 1000, photoCount: 12 },
+    low: { mainCount: 480, dustCount: 600, photoCount: 8 },
   };
 
   console.info("[Device]", { isMobile, cores, mem, ratio, tier });

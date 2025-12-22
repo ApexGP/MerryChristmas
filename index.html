@@ -30,6 +30,9 @@
     <div id="loader">
       <div class="spinner"></div>
       <div class="loader-text">LOADING HOLIDAY MAGIC</div>
+      <div class="loader-subtext" id="loader-subtext">
+        First load may take a bit longer — please wait
+      </div>
     </div>
 
     <!-- UI Overlay -->
@@ -91,6 +94,14 @@
               li.textContent = txt;
               list.appendChild(li);
             });
+          }
+
+          const loaderSub = document.getElementById("loader-subtext");
+          if (loaderSub) {
+            loaderSub.textContent = isZh
+              ? "第一次加载时间较长，请耐心等待"
+              : "First load may take a bit longer — please wait";
+            loaderSub.classList.toggle("zh", isZh);
           }
 
           const shareBtn = document.getElementById("share-button");
