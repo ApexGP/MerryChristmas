@@ -37,6 +37,7 @@ export class ParticleSystem {
 
   _initMaterials() {
     const candyTexture = TextureFactory.createCandyCaneTexture();
+    const defaultPhotoTexture = TextureFactory.createDefaultPhotoTexture();
 
     return {
       goldBox: new THREE.MeshStandardMaterial({
@@ -76,9 +77,17 @@ export class ParticleSystem {
         roughness: 0.4,
         metalness: 0.1,
       }),
-      photo: new THREE.MeshBasicMaterial({
-        map: TextureFactory.createDefaultPhotoTexture(),
+      photoFrameGold: new THREE.MeshPhysicalMaterial({
+        color: 0xd4af37,
+        metalness: 1.0,
+        roughness: 0.18,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.08,
+        envMapIntensity: 2.2,
+        emissive: 0x442200,
+        emissiveIntensity: 0.25,
       }),
+      defaultPhotoTexture,
     };
   }
 
@@ -94,7 +103,28 @@ export class ParticleSystem {
       sphere: new THREE.SphereGeometry(0.3, 22, 16),
       candy: new THREE.TubeGeometry(curve, 8, 0.1, 8, false),
       photoFrame: new THREE.BoxGeometry(1.2, 1.2, 0.1),
+      photoPlane: new THREE.PlaneGeometry(1.05, 1.05),
     };
+  }
+
+  _createPhotoFrame(texture) {
+    const group = new THREE.Group();
+    const frame = new THREE.Mesh(
+      this.geometries.photoFrame,
+      this.materials.photoFrameGold
+    );
+    const photoMat = new THREE.MeshPhysicalMaterial({
+      map: texture,
+      metalness: 0.05,
+      roughness: 0.55,
+      clearcoat: 0.1,
+      envMapIntensity: 0.6,
+    });
+    const photoPlane = new THREE.Mesh(this.geometries.photoPlane, photoMat);
+    photoPlane.position.z = 0.055;
+    group.add(frame);
+    group.add(photoPlane);
+    return group;
   }
 
   _initParticles() {
@@ -125,10 +155,7 @@ export class ParticleSystem {
     }
 
     for (let i = 0; i < photoCount; i++) {
-      const mesh = new THREE.Mesh(
-        this.geometries.photoFrame,
-        this.materials.photo.clone()
-      );
+      const mesh = this._createPhotoFrame(this.materials.defaultPhotoTexture);
       mesh.scale.multiplyScalar(this.fullnessScale);
       this._addParticle(mesh, "PHOTO", i, photoCount);
     }
@@ -226,8 +253,7 @@ export class ParticleSystem {
   }
 
   addPhoto(texture) {
-    const mat = new THREE.MeshBasicMaterial({ map: texture });
-    const mesh = new THREE.Mesh(this.geometries.photoFrame, mat);
+    const mesh = this._createPhotoFrame(texture);
     mesh.scale.multiplyScalar(this.fullnessScale);
     this._addParticle(
       mesh,
@@ -351,6 +377,10 @@ export class ParticleSystem {
   }
 
   _setMeshOpacity(mesh, opacity) {
+    if (mesh.isGroup) {
+      mesh.children.forEach((child) => this._setMeshOpacity(child, opacity));
+      return;
+    }
     const material = Array.isArray(mesh.material)
       ? mesh.material
       : [mesh.material];
