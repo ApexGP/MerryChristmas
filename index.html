@@ -43,16 +43,57 @@
             <h2>使用说明</h2>
             <button class="help-close btn-gold">Close</button>
           </div>
-          <ul>
-            <li>允许摄像头：启用手势魔法。</li>
-            <li>捏合手指：随机聚焦一张照片。</li>
-            <li>握拳：重组成圣诞树；张开手：散开漂浮。</li>
-            <li>桌面：鼠标拖拽视角；移动端：触控旋转视角。</li>
-            <li>点击 Add Memories 上传图片作为装饰。</li>
-            <li>按 H 或双击：显示/隐藏控制层。</li>
-          </ul>
+          <ul id="help-list"></ul>
         </div>
       </div>
+
+      <script>
+        (() => {
+          const isZh =
+            /^zh/i.test(navigator.language || navigator.userLanguage || "") ||
+            (navigator.languages || []).some((l) => /^zh/i.test(l));
+          const t = isZh
+            ? {
+                btn: "Help",
+                title: "使用说明",
+                items: [
+                  "允许摄像头：启用手势魔法与模式切换。",
+                  "聚合状态下双击屏幕/张开手手掌：散开漂浮。",
+                  "漂浮状态下单击/捏合手指：随机聚焦一张照片。",
+                  "聚焦状态下单击/发送手指：回到漂浮状态。",
+                  "漂浮状态下鼠标双击/握拳：重组成圣诞树。",
+                  "拖拽/触控水平旋转视角",
+                  "点击 'Add Memories' 上传图片作为装饰。",
+                ],
+              }
+            : {
+                btn: "Help",
+                title: "How to Play",
+                items: [
+                  "Allow Camera: Enable Gesture Magic and Mode Switching.",
+                  "Double-tap or Open Palm (MODE-TREE): Scatter and float.",
+                  "Click / Pinch (MODE-SCATTER): Focus on a random photo.",
+                  "Click / Release (MODE-FOCUS): Return to floating state.",
+                  "Double-click / Make a Fist (MODE-SCATTER): Reassemble into a Christmas tree.",
+                  "Drag / Touch to rotate the view horizontally.",
+                  "Click 'Add Memories' to upload your photos as decorations.",
+                ],
+              };
+          const btn = document.getElementById("help-button");
+          if (btn) btn.textContent = t.btn;
+          const title = document.querySelector("#help-modal h2");
+          if (title) title.textContent = t.title;
+          const list = document.getElementById("help-list");
+          if (list) {
+            list.innerHTML = "";
+            t.items.forEach((txt) => {
+              const li = document.createElement("li");
+              li.textContent = txt;
+              list.appendChild(li);
+            });
+          }
+        })();
+      </script>
 
       <div class="upload-wrapper">
         <input type="file" id="file-input" accept="image/*" />
