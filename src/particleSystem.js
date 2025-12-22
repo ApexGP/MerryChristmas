@@ -28,9 +28,9 @@ export class ParticleSystem {
       normal: { env: 2.2, emissive: 0.25 },
       focus: { env: 1.2, emissive: 0.12 },
     };
-    this.focusScaleBase = 6; // 聚焦模式下照片缩放比例
-    this.focusScaleCap = 12;
-    this.photoNativeMaxScale = 24;
+    this.focusScaleBase = 4; // 聚焦模式下照片缩放比例
+    this.focusScaleCap = 6;
+    this.photoNativeMaxScale = 16;
 
     this._initParticles();
     this.setActiveFraction(1);
@@ -382,6 +382,9 @@ export class ParticleSystem {
       } else {
         this.frozenYaw = null;
       }
+    } else if (STATE.mode === MODES.FOCUS) {
+      // 在聚焦模式持续刷新材质，避免长时间散开/旋转后反光状态丢失
+      this._refreshPhotoFrameMaterial(true);
     }
 
     if (STATE.mode === MODES.FOCUS) {
@@ -418,7 +421,8 @@ export class ParticleSystem {
     const frameMat = this.materials.photoFrameGold;
     if (!frameMat) return;
     const envMap = this.scene?.environment;
-    let dirty = false;
+    let dirty = isFocus; // force refresh while in focus to keep highlights alive
+
     if (envMap && frameMat.envMap !== envMap) {
       frameMat.envMap = envMap;
       dirty = true;
@@ -434,16 +438,24 @@ export class ParticleSystem {
         dirty = true;
       }
     }
-    if (frameMat.metalness !== 1 || frameMat.roughness !== 0.18) {
+
+    if (frameMat.metalness !== 1) {
       frameMat.metalness = 1;
+      dirty = true;
+    }
+    if (frameMat.roughness !== 0.18) {
       frameMat.roughness = 0.18;
       dirty = true;
     }
-    if (frameMat.clearcoat !== 1 || frameMat.clearcoatRoughness !== 0.08) {
+    if (frameMat.clearcoat !== 1) {
       frameMat.clearcoat = 1;
+      dirty = true;
+    }
+    if (frameMat.clearcoatRoughness !== 0.08) {
       frameMat.clearcoatRoughness = 0.08;
       dirty = true;
     }
+
     if (dirty) frameMat.needsUpdate = true;
   }
 

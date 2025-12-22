@@ -62,7 +62,7 @@ h1 {
   backdrop-filter: blur(10px);
   padding: 20px;
   border: 1px solid #d4af37;
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.3);
 }
 
@@ -88,6 +88,7 @@ h1 {
   cursor: pointer;
   transition: all 0.3s ease;
   text-transform: uppercase;
+  border-radius: 8px;
 }
 
 .btn-gold:hover {
@@ -152,6 +153,39 @@ h1 {
   right: 10px;
   opacity: 0; /* Hidden but active */
   pointer-events: none;
+}
+
+#repo-link {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  font-family: "Cinzel", serif;
+  font-size: 13px;
+  color: #d4af37;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.05));
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+#repo-link:hover {
+  color: #fff3c4;
+  transform: translateY(-1px);
+}
+
+.repo-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.repo-text {
+  letter-spacing: 0.4px;
 }
 
 #file-input {

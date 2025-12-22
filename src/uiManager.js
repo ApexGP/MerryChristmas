@@ -8,6 +8,8 @@ export class UIManager {
     this.hideTimer = null;
     this.longPressTimer = null;
     this.treeShareManager = options.treeShareManager;
+    this.uploadWrapper = document.querySelector(".upload-wrapper");
+    this.shareButton = document.getElementById("share-button");
 
     this.helpButton = document.getElementById("help-button");
     this.helpModal = document.getElementById("help-modal");
@@ -51,14 +53,15 @@ export class UIManager {
       }
     });
 
-    const shareBtn = document.getElementById("share-button");
-    if (shareBtn) {
+    if (this.shareButton) {
       const updateShareBtnVisibility = (isViewer) => {
-        shareBtn.style.display = isViewer ? "none" : "inline-block";
+        this.shareButton.style.display = isViewer ? "none" : "inline-block";
       };
       updateShareBtnVisibility(this.treeShareManager?.isViewer);
-      this.treeShareManager?.setShareStateChangeCallback?.(updateShareBtnVisibility);
-      shareBtn.addEventListener("click", () => {
+      this.treeShareManager?.setShareStateChangeCallback?.(
+        updateShareBtnVisibility
+      );
+      this.shareButton.addEventListener("click", () => {
         this.treeShareManager?.copyShareLink();
       });
     }
@@ -86,6 +89,11 @@ export class UIManager {
   _setUIVisible(visible) {
     this.controlsVisible = visible;
     this.uiLayer.style.opacity = visible ? "1" : "0";
+    const pointerState = visible ? "auto" : "none";
+    if (this.uploadWrapper)
+      this.uploadWrapper.style.pointerEvents = pointerState;
+    if (this.helpButton) this.helpButton.style.pointerEvents = pointerState;
+    if (this.shareButton) this.shareButton.style.pointerEvents = pointerState;
   }
 
   _initMobileAutoHide() {
