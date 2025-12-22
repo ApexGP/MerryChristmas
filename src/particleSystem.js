@@ -24,6 +24,10 @@ export class ParticleSystem {
     this.materials = this._initMaterials();
     this.geometries = this._initGeometries();
     this.fullnessScale = 1.5;
+    this.photoFrameTone = {
+      normal: { env: 2.2, emissive: 0.25 },
+      focus: { env: 1.2, emissive: 0.12 },
+    };
 
     this._initParticles();
     this.setActiveFraction(1);
@@ -115,10 +119,13 @@ export class ParticleSystem {
     );
     const photoMat = new THREE.MeshPhysicalMaterial({
       map: texture,
-      metalness: 0.05,
-      roughness: 0.55,
-      clearcoat: 0.1,
-      envMapIntensity: 0.6,
+      metalness: 0.02,
+      roughness: 0.82,
+      clearcoat: 0.02,
+      clearcoatRoughness: 0.6,
+      envMapIntensity: 0.12,
+      transmission: 0,
+      sheen: 0,
     });
     const photoPlane = new THREE.Mesh(this.geometries.photoPlane, photoMat);
     photoPlane.position.z = 0.055;
@@ -356,10 +363,14 @@ export class ParticleSystem {
     });
 
     // 持续自转：基础角度累积，再叠加手势偏移，确保即便无输入也持续逆时针
-    if (modeChanged && STATE.mode === MODES.FOCUS) {
-      this.frozenYaw = this.group.rotation.y;
-    } else if (modeChanged && STATE.mode !== MODES.FOCUS) {
-      this.frozenYaw = null;
+    if (modeChanged) {
+      const inFocus = STATE.mode === MODES.FOCUS;
+      this._refreshPhotoFrameMaterial(inFocus);
+      if (inFocus) {
+        this.frozenYaw = this.group.rotation.y;
+      } else {
+        this.frozenYaw = null;
+      }
     }
 
     if (STATE.mode === MODES.FOCUS) {
@@ -390,6 +401,40 @@ export class ParticleSystem {
       mat.transparent = opacity < 1;
       mat.opacity = opacity;
     });
+  }
+
+  _refreshPhotoFrameMaterial(isFocus = false) {
+    const frameMat = this.materials.photoFrameGold;
+    if (!frameMat) return;
+    const envMap = this.scene?.environment;
+    let dirty = false;
+    if (envMap && frameMat.envMap !== envMap) {
+      frameMat.envMap = envMap;
+      dirty = true;
+    }
+    const tone =
+      this.photoFrameTone?.[isFocus ? "focus" : "normal"] ?? null;
+    if (tone) {
+      if (frameMat.envMapIntensity !== tone.env) {
+        frameMat.envMapIntensity = tone.env;
+        dirty = true;
+      }
+      if (frameMat.emissiveIntensity !== tone.emissive) {
+        frameMat.emissiveIntensity = tone.emissive;
+        dirty = true;
+      }
+    }
+    if (frameMat.metalness !== 1 || frameMat.roughness !== 0.18) {
+      frameMat.metalness = 1;
+      frameMat.roughness = 0.18;
+      dirty = true;
+    }
+    if (frameMat.clearcoat !== 1 || frameMat.clearcoatRoughness !== 0.08) {
+      frameMat.clearcoat = 1;
+      frameMat.clearcoatRoughness = 0.08;
+      dirty = true;
+    }
+    if (dirty) frameMat.needsUpdate = true;
   }
 
   pickRandomPhoto() {
