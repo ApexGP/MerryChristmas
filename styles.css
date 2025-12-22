@@ -66,6 +66,18 @@ h1 {
   background: rgba(0, 0, 0, 0.3);
 }
 
+.upload-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.upload-actions .btn-gold {
+  flex: 1;
+  min-width: 160px;
+}
+
 .btn-gold {
   background: transparent;
   border: 1px solid #d4af37;

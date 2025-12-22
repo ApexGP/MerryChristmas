@@ -1,5 +1,3 @@
-import * as THREE from "three";
-
 export class UIManager {
   constructor(onFileLoaded, options = {}) {
     this.loader = document.getElementById("loader");
@@ -9,6 +7,7 @@ export class UIManager {
     this.isMobile = !!options.isMobile;
     this.hideTimer = null;
     this.longPressTimer = null;
+    this.treeShareManager = options.treeShareManager;
 
     this.helpButton = document.getElementById("help-button");
     this.helpModal = document.getElementById("help-modal");
@@ -34,16 +33,35 @@ export class UIManager {
     fileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          new THREE.TextureLoader().load(ev.target.result, (t) => {
-            t.colorSpace = THREE.SRGBColorSpace;
-            this.onFileLoaded?.(t);
-          });
-        };
-        reader.readAsDataURL(file);
+        if (this.treeShareManager) {
+          this.treeShareManager.handleFile(file);
+        } else {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            import("three").then((THREE) => {
+              new THREE.TextureLoader().load(ev.target.result, (t) => {
+                t.colorSpace = THREE.SRGBColorSpace;
+                this.onFileLoaded?.(t);
+              });
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+        e.target.value = "";
       }
     });
+
+    const shareBtn = document.getElementById("share-button");
+    if (shareBtn) {
+      const updateShareBtnVisibility = (isViewer) => {
+        shareBtn.style.display = isViewer ? "none" : "inline-block";
+      };
+      updateShareBtnVisibility(this.treeShareManager?.isViewer);
+      this.treeShareManager?.setShareStateChangeCallback?.(updateShareBtnVisibility);
+      shareBtn.addEventListener("click", () => {
+        this.treeShareManager?.copyShareLink();
+      });
+    }
 
     this.helpButton.addEventListener("click", () => this._toggleHelp(true));
     this.helpClose.addEventListener("click", () => this._toggleHelp(false));

@@ -23,13 +23,13 @@ export class ParticleSystem {
 
     this.materials = this._initMaterials();
     this.geometries = this._initGeometries();
-    this.fullnessScale = 1.5;
+    this.fullnessScale = 1.5; // 粒子体积放大比例
     this.photoFrameTone = {
       normal: { env: 2.2, emissive: 0.25 },
       focus: { env: 1.2, emissive: 0.12 },
     };
-    this.focusScaleBase = 6;
-    this.focusScaleCap = 16;
+    this.focusScaleBase = 6; // 聚焦模式下照片缩放比例
+    this.focusScaleCap = 12;
     this.photoNativeMaxScale = 24;
 
     this._initParticles();

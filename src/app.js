@@ -10,6 +10,8 @@ import { PerformanceGovernor } from "./performanceGovernor.js";
 import { VisionManager } from "./visionManager.js";
 import { UIManager } from "./uiManager.js";
 import { STATE, MODES } from "./state.js";
+import { TreeShareManager } from "./TreeShareManager.js";
+import { TextureFactory } from "./textureFactory.js";
 
 export class App {
   constructor() {
@@ -175,9 +177,14 @@ export class App {
   }
 
   _initManagers() {
+    this.treeShareManager = new TreeShareManager({
+      particleSystem: this.particleSystem,
+      defaultTextureFactory: () => TextureFactory.createDefaultPhotoTexture(),
+    });
+
     this.uiManager = new UIManager(
       (texture) => this.particleSystem?.addPhoto(texture),
-      { isMobile: this.device.isMobile }
+      { isMobile: this.device.isMobile, treeShareManager: this.treeShareManager }
     );
     this.visionManager = new VisionManager(() =>
       this.particleSystem?.pickRandomPhoto()

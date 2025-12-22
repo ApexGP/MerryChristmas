@@ -92,17 +92,23 @@
               list.appendChild(li);
             });
           }
+
+          const shareBtn = document.getElementById("share-button");
+          if (shareBtn) shareBtn.textContent = isZh ? "分享链接" : "Share Link";
         })();
       </script>
 
       <div class="upload-wrapper">
         <input type="file" id="file-input" accept="image/*" />
-        <button
-          class="btn-gold"
-          onclick="document.getElementById('file-input').click()"
-        >
-          Add Memories
-        </button>
+        <div class="upload-actions">
+          <button
+            class="btn-gold"
+            onclick="document.getElementById('file-input').click()"
+          >
+            Add Memories
+          </button>
+          <button class="btn-gold" id="share-button">Share Link</button>
+        </div>
         <span class="hint-text">Press 'H' to Hide Controls</span>
       </div>
     </div>
