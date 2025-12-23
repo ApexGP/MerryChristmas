@@ -31,6 +31,7 @@ export class TreeShareManager {
     this.onUploadError = options.onUploadError;
     this.publicIds = [];
     this.loadedIds = new Set();
+    this.appliedIds = new Set();
     this.shareIdsFromUrl = this._getShareIdsFromUrl();
     this.defaultTextureFactory =
       options.defaultTextureFactory ||
@@ -41,10 +42,7 @@ export class TreeShareManager {
     this.isZh = this._detectZh();
 
     this._ensureToastContainer();
-    this._hydrateFromUrl();
-    if (!this.publicIds.length) {
-      this._hydrateFromCache();
-    }
+    this._hydrate();
   }
 
   setShareStateChangeCallback(cb) {
@@ -80,6 +78,13 @@ export class TreeShareManager {
       console.error("Upload flow failed", err);
       this.onUploadError?.(err);
       this.toast(err?.message || this._msg("uploadFail"));
+    }
+  }
+
+  async _hydrate() {
+    await this._hydrateFromUrl();
+    if (!this.publicIds.length) {
+      await this._hydrateFromCache();
     }
   }
 
