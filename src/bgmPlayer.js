@@ -14,11 +14,7 @@ export class BgmPlayer {
 
   async ensureStarted() {
     if (this.ctx && this.ctx.state === "closed") {
-      this.ctx = null;
-      this.bus = null;
-      this.source = null;
-      this.buffer = null;
-      this.loadPromise = null;
+      this._resetCtx();
     }
     if (!this.ctx) {
       this._initContext();
@@ -28,6 +24,9 @@ export class BgmPlayer {
       await this.ctx.resume().catch(() => {});
     }
     await this._ensureBuffer();
+    if (this._isPlaying()) {
+      return this.loadPromise;
+    }
     this._playBuffer();
     return this.loadPromise;
   }
@@ -52,6 +51,23 @@ export class BgmPlayer {
     this.bus = this.ctx.createGain();
     this.bus.gain.value = this.masterVolume;
     this.bus.connect(this.ctx.destination);
+  }
+
+  _resetCtx() {
+    this.ctx = null;
+    this.bus = null;
+    this.source = null;
+    this.buffer = null;
+    this.loadPromise = null;
+  }
+
+  _isPlaying() {
+    return (
+      !!this.source &&
+      !!this.ctx &&
+      this.ctx.state === "running" &&
+      typeof this.source.stop === "function"
+    );
   }
 
   async _ensureBuffer() {

@@ -34,13 +34,41 @@ export class App {
 
   _initAudioHooks() {
     this.bgmPlayer = new BgmPlayer({ tempo: 68, masterVolume: 0.25 });
-    const kickoff = () => this.bgmPlayer?.ensureStarted();
-    // Resume if the context gets suspended (e.g., tab switching).
+    const kickoff = async () => {
+      try {
+        await this.bgmPlayer?.ensureStarted();
+        this._removeAudioUnlockListeners();
+      } catch (e) {
+        console.warn("BGM start failed", e);
+      }
+    };
+    this._addAudioUnlockListeners(kickoff);
+    // 页面从后台返回时恢复
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") kickoff();
     });
-    // 尝试在初始化后立即播放（若浏览器策略阻止，将在标签页可见时重试）。
+    // 初始化阶段尝试启动，若被策略阻止将由手势解锁
     setTimeout(kickoff, 120);
+  }
+
+  _addAudioUnlockListeners(kickoff) {
+    if (this._audioUnlockAttached) return;
+    this._audioUnlockAttached = true;
+    this._audioUnlockEvents = ["pointerdown", "touchstart", "click", "keydown"];
+    this._audioUnlockHandler = () => kickoff();
+    this._audioUnlockEvents.forEach((ev) =>
+      window.addEventListener(ev, this._audioUnlockHandler, { passive: true })
+    );
+  }
+
+  _removeAudioUnlockListeners() {
+    if (!this._audioUnlockAttached) return;
+    this._audioUnlockEvents?.forEach((ev) =>
+      window.removeEventListener(ev, this._audioUnlockHandler, {
+        passive: true,
+      })
+    );
+    this._audioUnlockAttached = false;
   }
 
   _initScene() {
