@@ -46,10 +46,17 @@ export class App {
       }
     };
     this._addAudioUnlockListeners(kickoff);
-    // 页面从后台返回时恢复
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") kickoff();
-    });
+    // 页面从后台返回/显示时恢复
+    this._bgmVisibilityHandler = () => {
+      if (document.visibilityState === "visible") {
+        this._scheduleBgmRetries(kickoff);
+      }
+    };
+    document.addEventListener("visibilitychange", this._bgmVisibilityHandler);
+    // iOS/Android 应用切回前台或页面从 bfcache 恢复
+    this._bgmPageShowHandler = () => this._scheduleBgmRetries(kickoff);
+    window.addEventListener("pageshow", this._bgmPageShowHandler);
+    window.addEventListener("focus", this._bgmPageShowHandler);
     // 初始化阶段尝试多次启动，若被策略阻止将由手势解锁
     this._scheduleBgmRetries(kickoff);
   }
