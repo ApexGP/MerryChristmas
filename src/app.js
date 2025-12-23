@@ -12,6 +12,7 @@ import { UIManager } from "./uiManager.js";
 import { STATE, MODES } from "./state.js";
 import { TreeShareManager } from "./TreeShareManager.js";
 import { TextureFactory } from "./textureFactory.js";
+import { BgmPlayer } from "./bgmPlayer.js";
 
 export class App {
   constructor() {
@@ -22,12 +23,24 @@ export class App {
     this._initPostProcessing();
     this._initManagers();
     this._initShortcuts();
+    this._initAudioHooks();
     this._start();
     this._camTargetZ = 50;
     this._camTargetY = 2;
     this._focusCamPos = null;
     this._suppressClickFocus = false;
     this._controlsFrozen = false;
+  }
+
+  _initAudioHooks() {
+    this.bgmPlayer = new BgmPlayer({ tempo: 68, masterVolume: 0.25 });
+    const kickoff = () => this.bgmPlayer?.ensureStarted();
+    // Resume if the context gets suspended (e.g., tab switching).
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") kickoff();
+    });
+    // 尝试在初始化后立即播放（若浏览器策略阻止，将在标签页可见时重试）。
+    setTimeout(kickoff, 120);
   }
 
   _initScene() {

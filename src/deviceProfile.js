@@ -15,8 +15,8 @@ export function detectDeviceProfile() {
 
   // Lighter particle budgets to speed up startup on lower tiers
   const presets = {
-    high: { mainCount: 1000, dustCount: 1200, photoCount: 14 },
-    medium: { mainCount: 800, dustCount: 1000, photoCount: 12 },
+    high: { mainCount: 900, dustCount: 1200, photoCount: 12 },
+    medium: { mainCount: 675, dustCount: 800, photoCount: 10 },
     low: { mainCount: 480, dustCount: 600, photoCount: 8 },
   };
 

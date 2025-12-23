@@ -7,7 +7,7 @@ const FOLDER = "xmas_tree";
 const API = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
 const CDN_BASE = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload`;
 const MAX_POOL = 24;
-const INPUT_MAX_BYTES = 5 * 1024 * 1024; // 5MB input guard
+const INPUT_MAX_BYTES = 10 * 1024 * 1024; // 10MB input guard
 const RETRY_DELAYS = [600, 1200];
 const TOAST_DURATION = 2600;
 const CACHE_KEY_IDS = "xmas_tree_public_ids";
@@ -31,9 +31,12 @@ export class TreeShareManager {
     this.onUploadError = options.onUploadError;
     this.publicIds = [];
     this.loadedIds = new Set();
-    this.defaultTextureFactory = options.defaultTextureFactory || (() => TextureFactory.createDefaultPhotoTexture());
+    this.shareIdsFromUrl = this._getShareIdsFromUrl();
+    this.defaultTextureFactory =
+      options.defaultTextureFactory ||
+      (() => TextureFactory.createDefaultPhotoTexture());
     this.toast = (msg) => this._showToast(msg);
-    this.isViewer = this._isViewerFromUrl() && !this._hasAuthorFlag();
+    this.isViewer = this._isViewerFromUrl();
     this.onShareStateChange = options.onShareStateChange;
     this.isZh = this._detectZh();
 
@@ -57,7 +60,10 @@ export class TreeShareManager {
         this.toast(this._msg("compressFallback"));
         return file;
       });
-      const { publicId, secureUrl, fromCache } = await this._uploadWithRetry(compressed, hash);
+      const { publicId, secureUrl, fromCache } = await this._uploadWithRetry(
+        compressed,
+        hash
+      );
       await this._applyTexture(publicId);
       this._pushPublicId(publicId);
       if (!this.isViewer) {
@@ -92,18 +98,11 @@ export class TreeShareManager {
 
   async _hydrateFromUrl() {
     // Prefer URL params (shared links) to hydrate textures on load
-    const params = new URLSearchParams(window.location.search);
-    const texturesParam = params.get("textures");
-    const single = params.get("texture");
-    let ids = [];
-    if (texturesParam) {
-      ids = texturesParam.split(",").map((s) => s.trim()).filter(Boolean);
-    } else if (single) {
-      ids = [single.trim()];
-    }
+    const ids = this.shareIdsFromUrl?.length
+      ? this.shareIdsFromUrl
+      : this._getShareIdsFromUrl();
     if (!ids.length) return;
-    const unique = Array.from(new Set(ids)).slice(0, MAX_POOL);
-    for (const id of unique) {
+    for (const id of ids) {
       try {
         const normalizedId = id.includes("/") ? id : `${FOLDER}/${id}`;
         await this._applyTexture(normalizedId);
@@ -135,8 +134,8 @@ export class TreeShareManager {
   async _compress(file) {
     const imageCompression = await loadCompressor();
     return imageCompression(file, {
-      maxSizeMB: 0.08, // relax compression for better detail
-      maxWidthOrHeight: 640, // slightly higher cap for visible quality
+      maxSizeMB: 5, // softer compression to preserve detail
+      maxWidthOrHeight: 1920,
       useWebWorker: true,
       maxIteration: 8,
       fileType: "image/jpeg",
@@ -175,7 +174,11 @@ export class TreeShareManager {
     const resp = await fetch(API, { method: "POST", body: form });
     if (resp.ok) {
       const data = await resp.json();
-      return { publicId: data.public_id, secureUrl: data.secure_url, fromCache: false };
+      return {
+        publicId: data.public_id,
+        secureUrl: data.secure_url,
+        fromCache: false,
+      };
     }
 
     if (resp.status === 409) {
@@ -188,13 +191,17 @@ export class TreeShareManager {
     }
 
     const errText = await resp.text().catch(() => "");
-    const err = new Error(errText || `Upload failed with status ${resp.status}`);
+    const err = new Error(
+      errText || `Upload failed with status ${resp.status}`
+    );
     err.status = resp.status;
     throw err;
   }
 
   async _applyTexture(publicId) {
-    const normalizedId = publicId.includes("/") ? publicId : `${FOLDER}/${publicId}`;
+    const normalizedId = publicId.includes("/")
+      ? publicId
+      : `${FOLDER}/${publicId}`;
     if (this.loadedIds.has(normalizedId)) return null;
     const url = `${CDN_BASE}/${normalizedId}.jpg`;
     try {
@@ -237,13 +244,34 @@ export class TreeShareManager {
       params.delete("texture");
     }
     const newSearch = params.toString();
-    const newUrl = newSearch ? `${window.location.pathname}?${newSearch}` : window.location.pathname;
+    const newUrl = newSearch
+      ? `${window.location.pathname}?${newSearch}`
+      : window.location.pathname;
     window.history.pushState({}, "", newUrl);
   }
 
-  _isViewerFromUrl() {
+  _getShareIdsFromUrl() {
     const params = new URLSearchParams(window.location.search);
-    return params.has("texture") || params.has("textures");
+    const texturesParam = params.get("textures");
+    const single = params.get("texture");
+    let ids = [];
+    if (texturesParam) {
+      ids = texturesParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else if (single) {
+      ids = [single.trim()];
+    }
+    return Array.from(new Set(ids)).slice(0, MAX_POOL);
+  }
+
+  _isViewerFromUrl() {
+    const ids =
+      this.shareIdsFromUrl && this.shareIdsFromUrl.length
+        ? this.shareIdsFromUrl
+        : this._getShareIdsFromUrl();
+    return ids.length > 0;
   }
 
   _hasAuthorFlag() {
@@ -293,7 +321,9 @@ export class TreeShareManager {
       this.publicIds = Array.from(new Set(this.publicIds)).slice(-MAX_POOL);
       // preload textures for cached author session
       this.publicIds.forEach((id) => {
-        this._applyTexture(id).catch((e) => console.warn("Cache hydrate fail", id, e));
+        this._applyTexture(id).catch((e) =>
+          console.warn("Cache hydrate fail", id, e)
+        );
       });
       this.isViewer = false;
       this.onShareStateChange?.(false);
@@ -364,14 +394,15 @@ export class TreeShareManager {
       noReshare: "当前链接不可再次分享",
       emptyShare: "暂无可分享的图片",
       type: "仅支持 jpg/jpeg/png 图片",
-      size: "图片过大，请控制在 5MB 以内",
+      size: "图片过大，请控制在 10MB 以内",
       retry: `服务器繁忙，重试中 (${vars.n || 1})...`,
       loadFail: "图片加载失败，已使用默认纹理",
       copied: "分享链接已复制",
       copyPrompt: "无法自动复制，请手动复制链接",
     };
     const en = {
-      compressFallback: "Compression failed. Uploading original (may use more data)",
+      compressFallback:
+        "Compression failed. Uploading original (may use more data)",
       reuse: "Image already exists; reused and link updated",
       uploaded: "Uploaded and link copied",
       viewerUpload: "Upload succeeded. You can keep creating and share",
@@ -379,7 +410,7 @@ export class TreeShareManager {
       noReshare: "This shared link cannot be reshared",
       emptyShare: "No photos to share yet",
       type: "Only jpg/jpeg/png are supported",
-      size: "Image too large; keep within 5MB",
+      size: "Image too large; keep within 10MB",
       retry: `Server busy, retrying (${vars.n || 1})...`,
       loadFail: "Image load failed; default texture applied",
       copied: "Share link copied",

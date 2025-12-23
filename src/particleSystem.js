@@ -28,9 +28,9 @@ export class ParticleSystem {
       normal: { env: 2.2, emissive: 0.25 },
       focus: { env: 1.2, emissive: 0.12 },
     };
-    this.focusScaleBase = 4; // 聚焦模式下照片缩放比例
-    this.focusScaleCap = 6;
-    this.photoNativeMaxScale = 16;
+    this.focusScaleBase = 6; // 聚焦模式下照片缩放比例
+    this.focusScaleCap = 8;
+    this.photoNativeMaxScale = 24;
 
     this._initParticles();
     this.setActiveFraction(1);
@@ -110,7 +110,7 @@ export class ParticleSystem {
       box: new THREE.BoxGeometry(0.5, 0.5, 0.5),
       sphere: new THREE.SphereGeometry(0.3, 22, 16),
       candy: new THREE.TubeGeometry(curve, 8, 0.1, 8, false),
-      photoFrame: new THREE.BoxGeometry(1.15, 1.15, 0.1),
+      photoFrame: new THREE.BoxGeometry(1.1, 1.1, 0.1),
       photoPlane: new THREE.PlaneGeometry(1.05, 1.05),
     };
   }
