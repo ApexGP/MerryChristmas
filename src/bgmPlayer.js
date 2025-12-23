@@ -61,6 +61,10 @@ export class BgmPlayer {
     this.loadPromise = null;
   }
 
+  isPlaying() {
+    return this._isPlaying();
+  }
+
   _isPlaying() {
     return (
       !!this.source &&

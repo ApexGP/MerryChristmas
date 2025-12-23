@@ -37,7 +37,10 @@ export class App {
     const kickoff = async () => {
       try {
         await this.bgmPlayer?.ensureStarted();
-        this._removeAudioUnlockListeners();
+        if (this.bgmPlayer?.isPlaying?.()) {
+          this._removeAudioUnlockListeners();
+          this._clearBgmRetryTimers();
+        }
       } catch (e) {
         console.warn("BGM start failed", e);
       }
@@ -47,8 +50,8 @@ export class App {
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") kickoff();
     });
-    // 初始化阶段尝试启动，若被策略阻止将由手势解锁
-    setTimeout(kickoff, 120);
+    // 初始化阶段尝试多次启动，若被策略阻止将由手势解锁
+    this._scheduleBgmRetries(kickoff);
   }
 
   _addAudioUnlockListeners(kickoff) {
@@ -69,6 +72,29 @@ export class App {
       })
     );
     this._audioUnlockAttached = false;
+  }
+
+  _scheduleBgmRetries(kickoff) {
+    this._clearBgmRetryTimers();
+    const delays = [0, 160, 480, 1200, 2400];
+    this._bgmRetryTimers = delays.map((delay) =>
+      setTimeout(async () => {
+        if (this.bgmPlayer?.isPlaying?.()) {
+          this._clearBgmRetryTimers();
+          return;
+        }
+        await kickoff();
+        if (this.bgmPlayer?.isPlaying?.()) {
+          this._clearBgmRetryTimers();
+        }
+      }, delay)
+    );
+  }
+
+  _clearBgmRetryTimers() {
+    if (!this._bgmRetryTimers) return;
+    this._bgmRetryTimers.forEach((t) => clearTimeout(t));
+    this._bgmRetryTimers = null;
   }
 
   _initScene() {
