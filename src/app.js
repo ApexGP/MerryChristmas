@@ -33,7 +33,7 @@ export class App {
   }
 
   _initAudioHooks() {
-    this.bgmPlayer = new BgmPlayer({ tempo: 68, masterVolume: 0.25 });
+    this.bgmPlayer = new BgmPlayer({ tempo: 68, masterVolume: 0.3 });
     const kickoff = async () => {
       try {
         await this.bgmPlayer?.ensureStarted();

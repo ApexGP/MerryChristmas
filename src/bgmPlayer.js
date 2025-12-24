@@ -2,7 +2,7 @@ const DEFAULT_URL = "./assets/We_Wish_You_A_Merry_Christmas.mp3";
 
 export class BgmPlayer {
   constructor(options = {}) {
-    this.masterVolume = options.masterVolume || 0.05;
+    this.masterVolume = options.masterVolume || 0.3;
     this.url = options.url || DEFAULT_URL;
     this.ctx = null;
     this.bus = null;
@@ -51,6 +51,12 @@ export class BgmPlayer {
     this.bus = this.ctx.createGain();
     this.bus.gain.value = this.masterVolume;
     this.bus.connect(this.ctx.destination);
+    this.ctx.onstatechange = () => {
+      const state = this.ctx?.state;
+      if (state === "closed") {
+        this._resetCtx();
+      }
+    };
   }
 
   _resetCtx() {
