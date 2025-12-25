@@ -15,7 +15,16 @@ export class UIManager {
     this.helpModal = document.getElementById("help-modal");
     this.helpClose = this.helpModal.querySelector(".help-close");
 
+    this._applyResponsiveUI = this._applyResponsiveUI.bind(this);
+
     this._initEvents();
+    this._applyResponsiveUI();
+    window.addEventListener("resize", this._applyResponsiveUI, { passive: true });
+    window.addEventListener(
+      "orientationchange",
+      this._applyResponsiveUI,
+      { passive: true }
+    );
     if (this.isMobile) this._initMobileAutoHide();
   }
 
@@ -73,6 +82,58 @@ export class UIManager {
     });
   }
 
+  _applyResponsiveUI() {
+    if (!this.isMobile) return;
+    const vw = window.innerWidth || document.documentElement.clientWidth || 360;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 640;
+    const scale = Math.max(0.7, Math.min(1, Math.min(vw / 520, vh / 900)));
+
+    const heading = this.uiLayer?.querySelector("h1");
+    if (heading) {
+      const size = Math.round(56 * scale);
+      heading.style.fontSize = `${size}px`;
+      heading.style.marginTop = `${Math.max(10, 20 * scale)}px`;
+    }
+
+    if (this.uploadWrapper) {
+      const pad = Math.max(12, 20 * scale);
+      const bottom = Math.max(14, 40 * scale);
+      this.uploadWrapper.style.padding = `${pad}px`;
+      this.uploadWrapper.style.bottom = `${bottom}px`;
+      this.uploadWrapper.style.transform = `translateX(-50%) scale(${scale})`;
+      this.uploadWrapper.style.transformOrigin = "50% 100%";
+    }
+
+    const buttons = this.uploadWrapper?.querySelectorAll(".btn-gold");
+    if (buttons?.length) {
+      const fontSize = Math.max(12, 16 * scale);
+      const padY = Math.max(8, 10 * scale);
+      const padX = Math.max(12, 20 * scale);
+      const minW = Math.max(120, 160 * scale);
+      buttons.forEach((btn) => {
+        btn.style.fontSize = `${fontSize}px`;
+        btn.style.padding = `${padY}px ${padX}px`;
+        btn.style.minWidth = `${minW}px`;
+      });
+    }
+
+    const hint = this.uploadWrapper?.querySelector(".hint-text");
+    if (hint) {
+      hint.style.fontSize = `${Math.max(10, 12 * scale)}px`;
+      hint.style.marginTop = `${Math.max(6, 10 * scale)}px`;
+    }
+
+    if (this.helpButton) {
+      const fontSize = Math.max(12, 14 * scale);
+      const padY = Math.max(6, 8 * scale);
+      const padX = Math.max(10, 16 * scale);
+      this.helpButton.style.fontSize = `${fontSize}px`;
+      this.helpButton.style.padding = `${padY}px ${padX}px`;
+      this.helpButton.style.right = `${Math.max(12, 20 * scale)}px`;
+      this.helpButton.style.top = `${Math.max(12, 20 * scale)}px`;
+    }
+  }
+
   _toggleUI() {
     this._setUIVisible(!this.controlsVisible);
     if (this.isMobile && this.controlsVisible) this._resetHideTimer();
@@ -107,7 +168,7 @@ export class UIManager {
       activity();
       this._cancelLongPress();
     });
-    this._resetHideTimer();
+    this._resetHideTimer(10000);
   }
 
   _handleMobileActivity() {
@@ -115,9 +176,12 @@ export class UIManager {
     this._resetHideTimer();
   }
 
-  _resetHideTimer() {
+  _resetHideTimer(duration = 5000) {
     clearTimeout(this.hideTimer);
-    this.hideTimer = setTimeout(() => this._setUIVisible(false), 5000);
+    this.hideTimer = setTimeout(
+      () => this._setUIVisible(false),
+      Math.max(1000, duration)
+    );
   }
 
   _scheduleLongPress() {
